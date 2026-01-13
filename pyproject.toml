@@ -12,7 +12,10 @@ readme = "README.md"
 requires-python = ">=3.9"
 license = { file = "LICENSE.txt" }
 authors = [
-  { name = "Blue Brain Project, EPFL" },
+    {name = "Blue Brain Project, EPFL"}
+]
+maintainers = [
+  { name = "Open Brain Institute" }
 ]
 dependencies = [
   "numpy>=1.22",
@@ -73,10 +76,10 @@ all = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/BlueBrain/ArchNGV"
-Repository = "https://github.com/BlueBrain/ArchNGV"
-Issues = "https://github.com/BlueBrain/ArchNGV/issues"
-Tracker = "https://github.com/BlueBrain/ArchNGV/issues"
+Homepage = "https://github.com/openbraininstitute/ArchNGV"
+Repository = "https://github.com/openbraininstitute/ArchNGV"
+Issues = "https://github.com/openbraininstitute/ArchNGV/issues"
+Tracker = "https://github.com/openbraininstitute/ArchNGV/issues"
 
 [project.scripts]
 ngv = "archngv.app.__main__:app"
