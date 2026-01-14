@@ -26,7 +26,10 @@ from archngv import __version__ as VERSION
 from archngv.app import ngv
 from archngv.app.logger import LOGGER, setup_logging
 
-_PACKAGE = importlib.resources.files(__package__)
+import importlib.resources as resources
+import archngv
+
+_PACKAGE = resources.files(archngv)
 
 
 @click.group("ngv", help=__doc__.format(esc="\b"))
