@@ -298,24 +298,51 @@ class GridLayers:
         thicknesses = self.aligned_thicknesses(self._grid.voxel_side)
         return OrderedDict(zip(labels[::-1], thicknesses[::-1]))
 
-
-DENSITY_CONVERSION = {"um-3_to_mm-3": 1e9, "mm-3_to_um-3": 1e-9}
-
-
 class GridBinnedDensity:
-    """Binned density profile across the cortical depth with increasing bins."""
+    """
+    Represents a binned density profile of astrocytes along the cortical depth.
+
+    The density is stored per bin along the depth axis and can be aligned
+    and rebinned to match a reference spatial grid. The class allows building
+    a voxelized density atlas suitable for simulation or analysis, writing it
+    to disk, and validating the resulting voxel data.
+
+    Features:
+      - Create a density profile from a total number of astrocytes
+      - Align bins to the cortical surface or reference grid
+      - Rebin densities to match the underlying grid
+      - Build a voxelized density atlas
+      - Save and validate the resulting atlas
+
+    Attributes:
+        _grid (Grid): Reference spatial grid defining the bounding box and voxelization.
+        density_bins (np.ndarray): Bin edges along the cortical depth axis.
+        densities (np.ndarray): Density values per bin.
+        _density (voxcell.VoxelData | None): Built voxelized density atlas after calling `build()`.
+    """
 
     @classmethod
     def create_from_n_astrocytes(cls, grid, n_astrocytes):
-        """Create a density atlas, the density of which multiplied by its volume
-        equals to n_astrocytes.
         """
-        # the 0.1 is added to the n_astrocytes in order to make sure that we always
-        # round down to the correct integer
-        density = (float(n_astrocytes) + 0.1) / grid.volume
-        densities = np.full(grid.n_bins(axis=1), fill_value=density, dtype=np.float32)
+        Create a binned astrocyte density atlas from a total number of astrocytes.
 
-        return cls(grid, grid.bins(axis=1), densities)
+        Astrocytes are distributed evenly across bins along the depth axis. Each bin's
+        density is computed as n_astrocytes_per_bin / bin volume.
+        """
+        n_bins = grid.n_bins(axis=1)
+        # Distribute astrocytes per bin
+        base_per_bin = n_astrocytes // n_bins
+        remainder = n_astrocytes % n_bins
+        n_astrocytes_per_bin = np.full(n_bins, base_per_bin, dtype=int)
+        n_astrocytes_per_bin[:remainder] += 1  # first bins get extra astrocytes
+
+        # Compute bin volumes (X*Z voxels × voxel volume × bin thickness)
+        bin_volumes = np.full(n_bins, grid.voxel_volume * grid.shape[0] * grid.shape[2])
+
+        # Compute density per bin
+        densities = n_astrocytes_per_bin / bin_volumes
+
+        return cls(grid, grid.bins(axis=1), densities.astype(np.float32))
 
     def __init__(self, grid, bins, densities):
         self._grid = grid
@@ -369,8 +396,7 @@ class GridBinnedDensity:
         for i in range(densities.shape[1]):
             densities[:, i, :] = self.densities[i]
 
-        # density units mm-3
-        densities *= DENSITY_CONVERSION["um-3_to_mm-3"]
+        densities *= 1e9 # density um-3_to_mm-3
         self._density = voxcell.VoxelData(
             densities, self._grid.voxel_dimensions, offset=self._grid.offset
         )
@@ -378,6 +404,7 @@ class GridBinnedDensity:
     def write(self, output_file):
         """Build density atlas and write it to file"""
         self._density.save_nrrd(str(output_file))
+        L.info(f"Astrocyte binned density written in: {output_file}")
 
     def validate(self, filepath):
         """Validate output density atlas file. We want the density multiplied with the volume
@@ -386,13 +413,23 @@ class GridBinnedDensity:
         """
         density = voxcell.VoxelData.load_nrrd(filepath)
         n_astrocytes = int(
-            DENSITY_CONVERSION["mm-3_to_um-3"] * np.sum(density.raw * self._grid.voxel_volume)
+            np.sum(density.raw * self._grid.voxel_volume) * 1e-9 # mm-3_to_um-3
         )
 
         npt.assert_array_equal(density.shape, self._grid.shape)
         npt.assert_allclose(density.offset, self._grid.min_point)
         npt.assert_allclose(density.shape * density.voxel_dimensions, self._grid.extents)
         npt.assert_equal(n_astrocytes, self.n_astrocytes())
+
+    def __repr__(self):
+        n_bins = len(self.densities)
+        total_astrocytes = self.n_astrocytes() if self._density is not None else "Not built"
+        return (
+            f"GridBinnedDensity(grid_shape={self._grid.shape}, n_bins={n_bins})\n"
+            f"  Density bins (min, max): ({self.density_bins[0]:.3f}, {self.density_bins[-1]:.3f})\n"
+            f"  Densities: {self.densities}...\n"
+            f"  Total astrocytes: {total_astrocytes}"
+        )
 
 
 class GridVasculature:
@@ -814,10 +851,21 @@ class GridNeuronalCircuit:
         edge_properties["efferent_center_y"] = edge_properties["afferent_center_y"]
         edge_properties["efferent_center_z"] = edge_properties["afferent_center_z"]
 
+        def write_edge_population(
+            output_path: Path,
+            population_name: str,
+            source_population: voxcell.CellCollection,
+            target_population: voxcell.CellCollection,
+            source_node_ids: np.ndarray,
+            target_node_ids: np.ndarray,
+            properties: Dict[str, np.ndarray],
+        )
+
+
         write_edge_population(
             str(output_file),
-            source_population_name="All",
-            target_population_name="All",
+            source_population="All",
+            target_population="All",
             source_population_size=self._n_neurons,
             target_population_size=self._n_neurons,
             source_node_ids=source_node_ids,
@@ -915,21 +963,35 @@ class OutputPaths:
 
 
 def build_datasets(grid, paths, n_neurons, n_synapses, n_astrocytes):
-    """Builds synthetic datasets of astrocytic density, neuronal node and edge
-    populations, vasculature skeleton and surface mesh all bounded by the grid.
+    """
+    Generate synthetic neuro-glial datasets constrained to a given spatial grid.
+
+    This includes:
+      - Astrocyte density distribution
+      - Neuronal nodes and synaptic connections
+      - Vasculature skeleton
+      - Surface mesh of the region
+
+    Notes:
+      - The total number of synapses (`n_synapses`) is distributed evenly among neurons.
+        If `n_synapses` is not divisible by `n_neurons`, it is reduced to the nearest divisible value.
 
     Args:
-        grid (Grid): blah
-        paths (OutputPaths): bleh
-        n_neurons (int):
-        n_synapses (int):
-        n_astrocytes (int):
+        grid (Grid): Spatial grid defining the bounding box and voxelization.
+        paths (OutputPaths): Container for output directories/files where datasets will be saved.
+        n_neurons (int): Number of neurons to populate within the grid.
+        n_synapses (int): Total number of synapses to generate between neurons.
+        n_astrocytes (int): Number of astrocytes to populate within the grid.
     """
     # atlas density
     L.info("Building atlas density...")
     g_density = GridBinnedDensity.create_from_n_astrocytes(grid, n_astrocytes)
+
+
+
     g_density.build()
     g_density.write(paths.density_path)
+
     L.info("Validating atlas density...")
     g_density.validate(paths.density_path)
 
@@ -968,7 +1030,7 @@ def build_datasets(grid, paths, n_neurons, n_synapses, n_astrocytes):
 
 def run(out_dir):
     """Run synthetic input dataset building"""
-    bbox_side = 70.0
+    bbox_side = 21.0
     voxel_side = 7.0
     offset = np.array([0.0, 0.0, 0.0])
 
@@ -980,13 +1042,9 @@ def run(out_dir):
     # all generated datasets
     grid = Grid.from_cubic_bbox(bbox_side, voxel_side, offset)
 
-    n_astrocytes = 5
-    n_neurons = 10
+    n_astrocytes = 3
+    n_neurons = 4
     n_synapses = 50*n_neurons
-
-    print(grid)
-
-    exit()
 
     build_datasets(
         grid, paths, n_neurons=n_neurons, n_synapses=n_synapses, n_astrocytes=n_astrocytes
