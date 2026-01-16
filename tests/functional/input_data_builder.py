@@ -22,20 +22,34 @@ from brainbuilder.app.atlases import (
 )
 from cached_property import cached_property
 from numpy import testing as npt
-from priority_collections.priority_heap import MaxHeap
+import heapq
 from scipy.spatial import cKDTree
 from tqdm import tqdm
 from vascpy import PointVasculature
-from vascpy.conversion.graph_conversion import point_to_vasculature_data
 
-from archngv.building.exporters.edge_populations import _write_edge_population
-from archngv.core.datasets import Vasculature
+from archngv.building.exporters import write_edge_population
+from archngv.core.circuit import Vasculature
 from archngv.spatial.bounding_box import BoundingBox
 from archngv.utils.binning import rebin_counts
 from archngv.utils.geometry import unique_points
 
 L = logging.getLogger(__name__)
 
+class MaxHeap:
+    def __init__(self):
+        self._h = []
+
+    def push(self, item, priority):
+        heapq.heappush(self._h, (-priority, item))  # invert
+
+    def pop(self):
+        return heapq.heappop(self._h)[1]
+
+    def peek(self):
+        return self._h[0][1] if self._h else None
+
+    def __len__(self):
+        return len(self._h)
 
 def _unique_points_edges(points, edges):
     """Returns point connectivity with unique points and edges by collapsing
@@ -147,7 +161,7 @@ class Grid:
 
         # find nearest integers so that the bbox is a multiple of the
         # voxel dimensions. We want an exact fit.
-        shape = np.rint(extents / voxel_side).astype(np.int)
+        shape = np.rint(extents / voxel_side).astype(np.int64)
 
         return cls(shape.astype(np.int32), offset, voxel_side)
 
@@ -159,7 +173,7 @@ class Grid:
     @cached_property
     def voxel_dimensions(self):
         """Returns dimensions of grid voxels"""
-        return np.array([self.voxel_side, self.voxel_side, self.voxel_side], dtype=np.float)
+        return np.array([self.voxel_side, self.voxel_side, self.voxel_side], dtype=float)
 
     @cached_property
     def voxel_volume(self):
@@ -213,6 +227,15 @@ class Grid:
         """Returns the grid binning across an axis"""
         return self.offset[axis] + np.arange(self.n_bin_edges(axis)) * self.voxel_side
 
+    def __repr__(self):
+        return (
+            f"Grid(shape={self.shape}, voxel_side={self.voxel_side:.3f}, offset={self.offset})\n"
+            f"  Extents: {self.extents}\n"
+            f"  Volume: {self.volume:.3f}\n"
+            f"  Centroid: {self.centroid}\n"
+            f"  Lateral area (XZ plane): {self.lateral_area:.3f}\n"
+            f"  Voxel volume: {self.voxel_volume:.3f}"
+        )
 
 class GridLayers:
     """Create layers aligned on the y direction of the input grid. The layers are normalized in [0., 1.]
@@ -481,11 +504,7 @@ class GridVasculature:
         point_data = {"diameter": np.random.uniform(low=5.0, high=8.0, size=len(points))}
         edge_data = {"type": np.ones(len(edges), dtype=np.int)}
 
-        node_properties, edge_properties = point_to_vasculature_data(
-            points, edges, point_data, edge_data
-        )
-
-        self._vasculature = PointVasculature(node_properties, edge_properties)
+        self._vasculature = PointVasculature.from_datasets(points, edges, point_data, edge_data)
 
     def write(self, output_file):
         """Build and write space filling vasculature to output file"""
@@ -795,7 +814,7 @@ class GridNeuronalCircuit:
         edge_properties["efferent_center_y"] = edge_properties["afferent_center_y"]
         edge_properties["efferent_center_z"] = edge_properties["afferent_center_z"]
 
-        _write_edge_population(
+        write_edge_population(
             str(output_file),
             source_population_name="All",
             target_population_name="All",
@@ -963,8 +982,11 @@ def run(out_dir):
 
     n_astrocytes = 5
     n_neurons = 10
-    n_synapses = 500
-    n_synapses -= n_synapses % n_neurons
+    n_synapses = 50*n_neurons
+
+    print(grid)
+
+    exit()
 
     build_datasets(
         grid, paths, n_neurons=n_neurons, n_synapses=n_synapses, n_astrocytes=n_astrocytes

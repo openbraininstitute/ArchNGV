@@ -54,26 +54,49 @@ dynamic = ["version"]
 docs = [
   "sphinx-bluebrain-theme"
 ]
-all = [
-  "ngv-ctools>=1.0.0",
-  "Click>=7.0",
-  "numpy-stl>=2.10",
+
+mesh = [
   "openmesh>=1.1.2",
-  "pyyaml>=5.0",
-  "pandas>=1.1.0",
-  "multivoro",
+  "meshio>=5.3.4",
+  "trimesh>=3.17.1",
+  "numpy-stl>=2.10",
+  "scikit-image>=0.18",
+]
+
+morphology = [
   "MorphIO>=3.2.0",
   "morph-tool>=2.4.0",
-  "snakemake>=5.0.0",
   "tmd>=2.0.11",
   "NeuroTS>=3.4.0",
   "diameter-synthesis>=0.5.4",
+]
+
+workflow = [
+  "snakemake>=5.0.0",
   "dask[distributed,bag]>=2022.04.1",
   "dask_mpi>=2.0",
-  "brain-indexer>=3.0.0",
-  "atlas-commons>=0.1.4",
-  "meshio>=5.3.4",
 ]
+
+analysis = [
+  "pandas>=1.1.0",
+  "pyyaml>=5.0",
+  "Click>=7.0",
+]
+
+dev = [
+  "pytest",
+  "pytest-cov",
+  "black",
+  "isort",
+  "pylint",
+  "open3d",
+  "brainbuilder"
+]
+
+all = [
+  "ArchNGV[mesh,morphology,workflow,analysis,dev]"
+]
+
 
 [project.urls]
 Homepage = "https://github.com/openbraininstitute/ArchNGV"
