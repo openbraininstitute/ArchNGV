@@ -297,7 +297,7 @@ The parameters for morphology synthesis.
         "models": [
           "astrocyte"
         ],
-        "neurite_types_dendrite": [
+        "neurite_types": [
           "basal",
           "axon"
         ],
