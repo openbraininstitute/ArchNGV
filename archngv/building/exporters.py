@@ -32,7 +32,11 @@ def add_properties_to_edge_population(
     """
     with h5py.File(filepath, "r+") as h5f:
         group = h5f[f"/edges/{population_name}/0"]
-        length = h5f[f"/edges/{population_name}/source_node_id"].shape[0]
+
+        source_node_id = h5f[f"/edges/{population_name}/source_node_id"]
+        # h5f has this property dynamically when it proxies datasets,
+        # but pylint cannot infer that.
+        length = source_node_id.shape[0]  # pylint: disable=no-member
 
         for name, values in properties.items():
             if name in group:
