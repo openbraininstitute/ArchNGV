@@ -51,8 +51,7 @@ git clone https://github.com/openbraininstitute/ArchNGV.git
 cd ArchNGV/
 
 # Create a Python virtualenv in repository source directory
-# I use 3.11 because there are no brain-indexer wheels for 3.14
-python3.11 -m venv venv
+python -m venv venv
 
 # Bring the virtualenv in this shell environment
 source venv/bin/activate
