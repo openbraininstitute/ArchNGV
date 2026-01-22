@@ -80,7 +80,7 @@ def create_tns_inputs(
 
         # remove endfeet properties
         parameters["grow_types"].remove(PERIVASCULAR_TYPE)
-        parameters["diameter_params"]["neurite_types"].remove(PERIVASCULAR_TYPE)
+        parameters["diameter_params"]["neurite_types_dendrite"].remove(PERIVASCULAR_TYPE)
 
         L.info("No endfeet available")
     else:
