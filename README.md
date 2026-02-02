@@ -17,21 +17,49 @@ Modules for in-silco building the Neuronal-Glial-Vascular structural architectur
 pip install archngv[all]
 ```
 
-### From source
+### Building from Source
+
+Some dependencies, like `openmesh` and `MorphIO`, include C++ extensions.  
+If prebuilt wheels are not available for your platform, you need to build them from source.  
+
+This requires:
+
+- **CMake** – for configuring and building the C++ extensions  
+- **Boost** – required by some libraries during compilation  
+
+#### macOS
+```bash
+brew install boost cmake
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+```
+#### Linux (Ubuntu/Debian)
+```bash
+sudo apt install libboost-all-dev cmake
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+```
+
+The `CMAKE_POLICY_VERSION_MINIMUM` override ensures that OpenMesh builds correctly even on systems with older CMake versions.
+
+
+Then, you can clone and install:
+
 ```shell
 # Clone this repository
-git clone https://github.com/BlueBrain/ArchNGV.git
+git clone https://github.com/openbraininstitute/ArchNGV.git
+
+# go to the folder
+cd ArchNGV/
 
 # Create a Python virtualenv in repository source directory
-python -m venv /path/to/repo/.venv
+python -m venv venv
 
 # Bring the virtualenv in this shell environment
-. /path/to/repo/.venv/bin/activate
+source venv/bin/activate
 
 # Install ArchNGV
-cd ArchNGV/
 pip install .[all]
 ```
+
 # Examples
 ## Create circuit exemplars
 

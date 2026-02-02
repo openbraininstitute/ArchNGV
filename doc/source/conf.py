@@ -14,14 +14,24 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-from pkg_resources import get_distribution
+from importlib.metadata import PackageNotFoundError
+from importlib.metadata import version as pkg_version
+
+autodoc_mock_imports = [
+    "openmesh",
+    "brain_indexer",
+]
 
 # -- Project information -----------------------------------------------------
 
 project = "ArchNGV"
 
 # The short X.Y version
-version = get_distribution("archngv").version
+try:
+    version = pkg_version("archngv")
+except PackageNotFoundError:
+    version = "0.0.0"
+
 
 # The full version, including alpha/beta/rc tags
 release = version
@@ -56,8 +66,8 @@ html_theme = "sphinx-bluebrain-theme"
 # html_static_path = ['_static']
 
 html_theme_options = {
-    "repo_url": "https://github.com/BlueBrain/ArchNGV",
-    "repo_name": "BlueBrain/ArchNGV",
+    "repo_url": "https://github.com/openbraininstitute/ArchNGV",
+    "repo_name": "openbraininstitute/ArchNGV",
     "metadata_distribution": "archngv",
 }
 
